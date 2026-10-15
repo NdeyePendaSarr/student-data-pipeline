@@ -1,0 +1,4 @@
+# Statistiques de langage GitHub (Linguist) : le cœur du projet est le pipeline Python.
+# Les interfaces web sont exclues du calcul, sans effet sur le code ni sur Git.
+frontend/** linguist-detectable=false
+frontend-react/** linguist-detectable=false
