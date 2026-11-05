@@ -2,17 +2,24 @@
 # main.py
 # Point d'entrée de l'application FastAPI
 # ============================================
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from app.routes import etudiants, stats, import_json, qualite
-from app.config import CORS_ORIGINS
+import logging
 import os
 
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+
+from app.config import CORS_ORIGINS
+from app.database.connection import get_connection
+from app.routes import etudiants, import_json, qualite, stats
+
+journal = logging.getLogger(__name__)
+
 app = FastAPI(
-    title="DEV DATA P8 - API",
-    description="API de gestion des étudiants",
+    title="Student Data Pipeline - API",
+    description="Ingestion, réconciliation et observabilité de données "
+                "étudiants",
     version="1.0.0"
 )
 
@@ -51,16 +58,23 @@ app.include_router(import_json.router, prefix="/api/v1")
 
 @app.get("/api/v1/health")
 def health_check():
+    # 503 si la base est injoignable : un superviseur ou un load
+    # balancer lit le code HTTP, pas le corps. Le détail de l'erreur
+    # (hôte, utilisateur…) reste dans les logs du serveur.
     try:
-        from app.database.connection import get_connection
         conn = get_connection()
         conn.close()
-        return {
-            "status": "ok",
-            "message": "Serveur et base de données opérationnels"
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+    except Exception:
+        journal.exception("Base de données injoignable")
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error",
+                     "message": "Base de données injoignable"}
+        )
+    return {
+        "status": "ok",
+        "message": "Serveur et base de données opérationnels"
+    }
 
 
 def servir_application():

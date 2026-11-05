@@ -2,16 +2,16 @@
 # routes/stats.py
 # Routes dashboard et statistiques
 # ============================================
-from fastapi import APIRouter
-from fastapi import Query
+from fastapi import APIRouter, Query
+
 from app.services.stats_service import (
-    get_stats_globales,
-    get_stats_classes,
-    get_top_moyennes,
+    get_dispersion_classes,
     get_distribution_moyennes,
-    get_stats_matieres,
     get_eleves_a_suivre,
-    get_dispersion_classes
+    get_stats_classes,
+    get_stats_globales,
+    get_stats_matieres,
+    get_top_moyennes,
 )
 
 router = APIRouter()

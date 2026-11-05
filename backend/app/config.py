@@ -3,6 +3,7 @@
 # Lecture des variables d'environnement
 # ============================================
 import os
+
 from dotenv import load_dotenv
 
 # Charger le fichier .env

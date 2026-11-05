@@ -6,7 +6,11 @@ import { Bouton, Champ, Liste } from './Ui.jsx';
 const vide = () =>
     Object.fromEntries(MATIERES.map((m) => [m, { devoirs: '', examen: '' }]));
 
-/** Moyenne d'une matière : devoirs et examen à parts égales. */
+/**
+ * Aperçu de la moyenne d'une matière, avec la formule du serveur
+ * (backend/app/regles.py) : devoirs pour un tiers, examen pour deux
+ * tiers. Le serveur recalcule de toute façon la valeur enregistrée.
+ */
 function moyenneMatiere(saisie) {
     const devoirs = saisie.devoirs
         .split(',')
@@ -16,7 +20,7 @@ function moyenneMatiere(saisie) {
 
     if (!devoirs.length || Number.isNaN(examen)) return null;
     const moyDevoirs = devoirs.reduce((a, b) => a + b, 0) / devoirs.length;
-    return { devoirs, examen, moyenne: (moyDevoirs + examen) / 2 };
+    return { devoirs, examen, moyenne: (moyDevoirs + 2 * examen) / 3 };
 }
 
 export default function FormulaireEleve({ classes, onFermer, onEnregistrer }) {

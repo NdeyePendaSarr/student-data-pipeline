@@ -7,6 +7,7 @@ import os
 from datetime import datetime
 
 from app.database.connection import get_connection
+from app.regles import code_valide, est_note, moyenne_matiere, numero_valide
 
 # Motifs de rejet. Une catégorie stable permet de compter les
 # rejets par cause et de savoir quoi corriger en priorité ;
@@ -64,11 +65,11 @@ def valider_ligne(brut):
                            f"Champs absents : {', '.join(manquants)}")
 
     code = str(brut['code']).strip().upper()
-    if len(code) != 6 or not code[:3].isalpha() or not code[3:].isdigit():
+    if not code_valide(code):
         raise LigneRejetee('FORMAT_CODE', f"Code invalide : {code!r}")
 
     numero = str(brut['numero']).strip().upper()
-    if len(numero) != 7 or not numero.isalnum():
+    if not numero_valide(numero):
         raise LigneRejetee('FORMAT_NUMERO', f"Numéro invalide : {numero!r}")
 
     nom    = str(brut['nom']).strip()
@@ -88,7 +89,7 @@ def valider_ligne(brut):
             continue
 
         for note in [*devoirs, examen]:
-            if not isinstance(note, (int, float)) or not 0 <= note <= 20:
+            if not est_note(note):
                 raise LigneRejetee(
                     'NOTE_HORS_BORNES',
                     f"{matiere} : note {note!r} hors de l'intervalle 0–20"
@@ -96,9 +97,12 @@ def valider_ligne(brut):
 
         moyenne = donnees.get('moyenne')
         if moyenne is None:
-            # Formule du projet amont : le devoir compte pour un
-            # tiers, l'examen pour deux tiers.
-            moyenne = (sum(devoirs) / len(devoirs) + 2 * examen) / 3
+            moyenne = moyenne_matiere(devoirs, examen)
+        elif not est_note(moyenne):
+            raise LigneRejetee(
+                'NOTE_HORS_BORNES',
+                f"{matiere} : moyenne {moyenne!r} hors de l'intervalle 0–20"
+            )
 
         notes[matiere] = {
             'devoirs': list(devoirs),
@@ -168,6 +172,17 @@ def _charger_etudiant(cursor, ligne, id_run, referentiel_classes,
         raise LigneRejetee('CLASSE_INCONNUE',
                            f"Classe absente du référentiel : {ligne['classe']!r}")
 
+    # Contrôle fait avant tout INSERT : une ligne rejetée ici ne doit
+    # laisser aucun étudiant orphelin en base.
+    notes = {m: d for m, d in ligne['notes'].items()
+             if m in referentiel_matieres}
+    if not notes:
+        raise LigneRejetee(
+            'NOTES_ABSENTES',
+            "Aucune matière du référentiel : "
+            f"{', '.join(ligne['notes'])}"
+        )
+
     cursor.execute("""
         INSERT INTO etudiant
             (code, numero, nom, prenom, date_naissance,
@@ -178,11 +193,8 @@ def _charger_etudiant(cursor, ligne, id_run, referentiel_classes,
           ligne['date_naissance'], id_classe, id_run))
     id_etudiant = cursor.fetchone()[0]
 
-    for matiere, donnees in ligne['notes'].items():
-        id_matiere = referentiel_matieres.get(matiere)
-        if id_matiere is None:
-            continue
-
+    for matiere, donnees in notes.items():
+        id_matiere = referentiel_matieres[matiere]
         cursor.execute("""
             INSERT INTO resultat_matiere
                 (note_examen, moyenne_matiere, id_etudiant, id_matiere)
@@ -227,8 +239,9 @@ def executer_ingestion(chemin, declencheur='CLI', numeros=None,
 
     if numeros is not None:
         voulus = set(numeros)
-        lignes = [l for l in lignes if str(l.get('numero')).upper() in voulus
-                  or l.get('numero') in voulus]
+        lignes = [brut for brut in lignes
+                  if str(brut.get('numero')).upper() in voulus
+                  or brut.get('numero') in voulus]
 
     if limite is not None:
         lignes = lignes[:limite]

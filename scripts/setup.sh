@@ -31,8 +31,10 @@ PGPASSWORD="$DB_PASSWORD" psql \
     -U "$DB_USER" -d "$DB_NAME" \
     -f sql/init.sql
 
-echo "==> Ingestion initiale des données"
-./venv/bin/python -m app.pipeline
+# Chargement partiel : le reste du fichier demeure dans le JSON,
+# qui garde son rôle de source secondaire (voir README).
+echo "==> Ingestion initiale des données (40 premières lignes)"
+./venv/bin/python -m app.pipeline --limite 40
 
 echo "==> Interface React"
 cd "$RACINE/frontend-react"

@@ -1,0 +1,11 @@
+# Linter Python : lancé en local (`ruff check app tests`) et en CI.
+target-version = "py312"
+line-length = 100
+
+[lint]
+# Erreurs, pyflakes, bugs probables, syntaxe moderne, ordre des imports.
+select = ["E", "F", "W", "B", "UP", "I"]
+
+[lint.flake8-bugbear]
+# Idiome FastAPI : les dépendances se déclarent en valeur par défaut.
+extend-immutable-calls = ["fastapi.Body", "fastapi.Query", "fastapi.Depends"]

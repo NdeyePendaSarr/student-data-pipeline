@@ -116,7 +116,7 @@ def lister_etudiants(page=1, limite=5, recherche=None,
 
         etudiants = []
         for ligne in lignes:
-            etudiant = dict(zip(colonnes, ligne))
+            etudiant = dict(zip(colonnes, ligne, strict=True))
             etudiant['date_naissance'] = str(etudiant['date_naissance'])
             etudiant['created_at']     = str(etudiant['created_at'])
             etudiant['moyenne_generale'] = float(
@@ -156,7 +156,7 @@ def get_etudiant_par_id(id_etudiant):
         if ligne is None:
             return None
 
-        etudiant = dict(zip(colonnes, ligne))
+        etudiant = dict(zip(colonnes, ligne, strict=True))
         etudiant['date_naissance'] = str(etudiant['date_naissance'])
         etudiant['created_at']     = str(etudiant['created_at'])
         etudiant['origine']        = 'DB'

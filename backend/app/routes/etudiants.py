@@ -3,8 +3,9 @@
 # Routes API pour les étudiants
 # ============================================
 from fastapi import APIRouter, HTTPException, Query
-from app.services import etudiant_service
+
 from app.models.etudiant import EtudiantCreer, EtudiantModifier
+from app.services import etudiant_service
 
 router = APIRouter()
 
@@ -57,7 +58,7 @@ def creer_etudiant(data: EtudiantCreer):
         etudiant = etudiant_service.creer_etudiant(data)
         return etudiant
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.put("/etudiants/{id_etudiant}")
@@ -71,7 +72,7 @@ def modifier_etudiant(id_etudiant: int, data: EtudiantModifier):
                                 detail="Étudiant introuvable")
         return etudiant
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/etudiants/{id_etudiant}/archive")

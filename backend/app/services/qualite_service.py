@@ -7,7 +7,7 @@ from app.database.connection import get_connection
 
 def _lignes_en_dicts(cursor):
     colonnes = [description[0] for description in cursor.description]
-    return [dict(zip(colonnes, ligne)) for ligne in cursor.fetchall()]
+    return [dict(zip(colonnes, ligne, strict=True)) for ligne in cursor.fetchall()]
 
 
 def get_historique_runs(limite=10):

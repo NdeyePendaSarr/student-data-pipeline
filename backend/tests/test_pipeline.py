@@ -7,7 +7,7 @@
 # ============================================
 import pytest
 
-from app.pipeline.ingestion import valider_ligne, LigneRejetee, MOTIFS
+from app.pipeline.ingestion import MOTIFS, LigneRejetee, valider_ligne
 
 
 def ligne(**surcharges):

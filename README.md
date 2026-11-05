@@ -1,10 +1,10 @@
-# School Management — intégration et réconciliation de données multi-sources
+# Student Data Pipeline — intégration et réconciliation de données multi-sources
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![Pydantic](https://img.shields.io/badge/Pydantic-2-E92063?logo=pydantic&logoColor=white)
-![Pytest](https://img.shields.io/badge/Pytest-41%20tests-0A9EDC?logo=pytest&logoColor=white)
+[![CI](https://github.com/NdeyePendaSarr/student-data-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/NdeyePendaSarr/student-data-pipeline/actions/workflows/ci.yml)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![Licence](https://img.shields.io/badge/licence-MIT-black)
 
@@ -179,17 +179,17 @@ La documentation interactive est sur `/docs` une fois le serveur lancé.
 
 ### 1. Prérequis
 
-Python 3.12, PostgreSQL 16 et Node.js 20 ou plus.
+Python 3.12, PostgreSQL 16 et Node.js 20.19 ou plus (exigence de Vite 8).
 
 ### 2. Cloner et installer
 
 ```bash
-git clone https://github.com/NdeyePendaSarr/school-management.git
-cd school-management
+git clone https://github.com/NdeyePendaSarr/student-data-pipeline.git
+cd student-data-pipeline
 ./scripts/setup.sh
 ```
 
-Au premier passage, le script crée `backend/.env` depuis le modèle et s'arrête : renseignez vos identifiants PostgreSQL, puis relancez-le. Il installe ensuite les dépendances Python, applique le schéma SQL et construit l'interface React.
+Au premier passage, le script crée `backend/.env` depuis le modèle et s'arrête : renseignez vos identifiants PostgreSQL, puis relancez-le. Il installe ensuite les dépendances Python, applique le schéma SQL, charge les 40 premières lignes du JSON (`--limite 40`, voir plus bas) et construit l'interface React.
 
 > `sql/init.sql` commence par des `DROP TABLE`. Ne relancez pas `setup.sh` sur une base contenant des données à conserver.
 
@@ -268,18 +268,25 @@ Avant de déployer ou de committer une modification visible, reconstruire avec `
 
 ## Tests
 
-41 tests couvrent les règles de validation Pydantic et celles du pipeline d'ingestion, motif de rejet par motif de rejet. Aucun ne demande de base de données :
+Deux niveaux, lancés à chaque push par GitHub Actions avec le linter Ruff et la construction de l'interface :
+
+- **Tests unitaires**, sans base de données : règles de validation Pydantic et du pipeline, motif de rejet par motif de rejet, calcul serveur des moyennes, bornes des paramètres HTTP, health check.
+- **Tests d'intégration** contre un vrai PostgreSQL 16 : idempotence de l'ingestion, quarantaine de l'échantillon non conforme sans étudiant orphelin, import sélectif, pagination fusionnée sans doublon ni trou à la frontière base / JSON, cohérence des statistiques.
 
 ```bash
 cd backend
 pip install -r requirements-dev.txt
-pytest
+ruff check app tests
+pytest                                   # unitaires
+INTEGRATION=1 pytest                     # + intégration, sur une base jetable (DB_*)
 ```
+
+> Les tests d'intégration recréent le schéma : ne les pointez jamais vers une base à conserver.
 
 ## Structure
 
 ```
-school-management/
+student-data-pipeline/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py               # Application FastAPI, sert aussi le frontend
@@ -287,11 +294,12 @@ school-management/
 │   │   ├── database/             # Connexion PostgreSQL
 │   │   ├── models/               # Schémas et validation Pydantic
 │   │   ├── pipeline/             # Ingestion : validation, quarantaine, journal
+│   │   ├── regles.py             # Règles partagées API / pipeline
 │   │   ├── routes/               # Endpoints HTTP
 │   │   └── services/             # Requêtes SQL et logique métier
 │   ├── sql/init.sql              # Schéma et données de référence
 │   ├── data/valides.json         # Source JSON héritée
-│   ├── tests/                    # Tests des règles de validation
+│   ├── tests/                    # Tests unitaires et d'intégration
 │   └── .env.example              # Modèle à copier en .env
 ├── frontend-react/
 │   └── src/
@@ -299,6 +307,7 @@ school-management/
 │       ├── pages/                # Élèves, Tableau de bord
 │       └── composants/           # Graphiques et briques d'interface
 ├── frontend/                     # Première version, HTML et JS sans framework
+├── .github/workflows/ci.yml      # Lint, tests, intégration PostgreSQL, build
 ├── docs/screenshots/
 └── scripts/                      # setup.sh, run.sh
 ```
@@ -312,10 +321,14 @@ Le dossier `frontend/` est la version initiale du projet, en HTML, CSS et JavaSc
 - **Fusion des deux sources côté serveur.** `GET /etudiants` reçoit le numéro de page, applique les filtres, interroge PostgreSQL, complète avec le JSON si la base ne fournit pas assez de lignes, puis ne retourne que les lignes de la page. Le frontend n'a rien à recoller. PostgreSQL étant la source principale, la liste globale est la base d'abord puis le JSON, qui reprend exactement là où la base s'arrête : ni doublon ni trou à la frontière.
 - **Édition.** Deux voies, comme le veut l'énoncé : double-clic sur une cellule avec validation par Entrée et annulation par Échap, ou case « Mode édition » qui ouvre les quatre champs d'un coup. Les lignes venues du JSON restent en lecture seule.
 - **Direction visuelle.** Indigo et menthe : bandeau nuit `#161C3D`, fond `#F3F5FC`, indigo `#4A47D8` pour les actions et les barres, menthe `#0EA47A` pour les écarts positifs. Le rouge `#D6455C` ne sert qu'à signaler une moyenne sous la barre des 10 — jamais de décoration. L'en-tête et les boutons utilisent deux jetons distincts : les confondre aplatit la hiérarchie.
-- **Graphiques sans bibliothèque de charts.** Histogramme, barres divergentes, étendues et anneau de répartition sont dessinés en CSS et en SVG. La contrainte qui a tranché : la barre des 10 doit tomber sur la frontière entre deux tranches, là où un axe catégoriel la place au centre de l'une d'elles. Le poids du bundle y gagne. La contrainte qui a tranché : la barre des 10 doit tomber exactement sur la frontière entre deux tranches, là où un axe catégoriel la place au centre de l'une d'elles. Le poids du bundle y gagne au passage.
+- **Graphiques : Chart.js et SVG.** Les six graphiques de répartition (classes, sources, validité, moyennes, top 10, tranches) passent par Chart.js. Les analyses complémentaires — écart devoirs / examen, dispersion par classe, élèves à suivre, anneau de qualité — sont dessinées à la main en CSS et en SVG, pour placer précisément les repères (barre des 10, étendues min–max) là où un axe catégoriel ne le permet pas.
 - **CORS.** Liste blanche pilotée par `CORS_ORIGINS`, restreinte par défaut à l'hôte local. Le frontend étant servi par FastAPI, aucune origine tierce n'est nécessaire.
 - **Connexions.** Une connexion PostgreSQL est ouverte puis fermée à chaque requête. Suffisant à cette échelle ; un pool (`psycopg_pool`) serait la prochaine étape sous charge réelle.
-- **Moyennes des lignes JSON.** Elles sont dérivées des notes du fichier, côté navigateur, et affichées à titre indicatif. Le calcul de référence reste l'agrégat SQL, qui ne porte que sur les élèves présents en base.
+- **Moyenne d'une matière calculée par le serveur.** `(moyenne des devoirs + 2 × examen) / 3`, la formule du projet amont. L'API ignore toute moyenne envoyée par le client : une seule formule, appliquée au même endroit que le pipeline.
+- **Casse du code élève.** Le pipeline met en majuscules un code hérité saisi en minuscules (nettoyage de données) ; l'API, elle, refuse un code mal saisi pour obliger la correction à la source. Les deux appliquent la même règle ASCII.
+- **Validité.** Seules des lignes validées entrent en base : `est_valide` reste donc à `TRUE` et l'indicateur « invalides » à zéro. La colonne est prête pour une future règle de revalidation (par exemple un référentiel de classes qui évolue).
+- **Pas d'authentification.** Hors du périmètre de ce projet de formation ; à ajouter avant toute exposition publique.
+- **Moyennes des lignes JSON.** Elles sont dérivées des notes du fichier à la lecture, et affichées à titre indicatif. Le calcul de référence reste l'agrégat SQL, qui ne porte que sur les élèves présents en base.
 
 ## Licence
 

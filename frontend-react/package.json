@@ -1,9 +1,9 @@
 {
-  "name": "gestion-scolaire-frontend",
+  "name": "student-data-pipeline-frontend",
   "private": true,
   "version": "2.0.0",
   "type": "module",
-  "description": "Interface React du projet de gestion scolaire",
+  "description": "Interface React de Student Data Pipeline",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

@@ -1,3 +1,6 @@
+# Scripts shell exécutés sous Linux/macOS : fins de ligne LF quel que soit l'OS.
+*.sh text eol=lf
+
 # Statistiques de langage GitHub (Linguist) : le cœur du projet est le pipeline Python.
 # Les interfaces web sont exclues du calcul, sans effet sur le code ni sur Git.
 frontend/** linguist-detectable=false

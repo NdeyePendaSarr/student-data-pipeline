@@ -1,5 +1,6 @@
 # CI Student Data Pipeline
-# Backend : 41 tests Pytest (sans base de données : validation et règles du pipeline).
+# Backend : Ruff, tests unitaires (sans base) et tests d'intégration
+#           contre un service PostgreSQL 16.
 # Frontend : vérifie que l'interface React se compile.
 name: CI
 
@@ -13,11 +14,36 @@ permissions:
 
 jobs:
   backend:
+    name: Backend — Ruff, Pytest et intégration PostgreSQL
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     defaults:
       run:
         working-directory: backend
+
+    env:
+      INTEGRATION: "1"
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: test
+      DB_USER: test
+      DB_PASSWORD: test
+
     steps:
       - uses: actions/checkout@v4
 
@@ -27,15 +53,19 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: backend/requirements-dev.txt
+          cache-dependency-path: backend/requirements*.txt
 
       - name: Installer les dépendances
         run: pip install -r requirements-dev.txt
 
-      - name: Lancer les tests
-        run: python -m pytest -q
+      - name: Lint
+        run: ruff check app tests
+
+      - name: Lancer les tests (unitaires et intégration)
+        run: python -m pytest -v
 
   frontend:
+    name: Frontend — build Vite
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -44,6 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Vite 8 exige Node 20.19 ou plus : "20" prend la dernière 20.x.
       - uses: actions/setup-node@v4
         with:
           node-version: "20"

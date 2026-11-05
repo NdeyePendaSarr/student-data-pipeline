@@ -3,8 +3,11 @@
 # Observabilité du pipeline d'ingestion
 # ============================================
 from fastapi import APIRouter, Query
+
 from app.services.qualite_service import (
-    get_historique_runs, get_rejets_par_motif, get_qualite_globale
+    get_historique_runs,
+    get_qualite_globale,
+    get_rejets_par_motif,
 )
 
 router = APIRouter()

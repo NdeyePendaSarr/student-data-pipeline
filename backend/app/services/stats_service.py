@@ -69,23 +69,36 @@ def get_stats_classes():
     Statistiques par classe :
     - nombre d'étudiants
     - moyenne générale de la classe
+
+    La moyenne de classe est la moyenne des moyennes générales des
+    élèves, comme dans get_dispersion_classes() : un élève compte
+    pour un, quel que soit son nombre de matières renseignées. Une
+    moyenne directe des lignes matière pondérerait les dossiers
+    complets et donnerait un chiffre différent d'un graphique à
+    l'autre.
     """
     conn = get_connection()
     cursor = conn.cursor()
 
     try:
         cursor.execute("""
+            WITH moyennes AS (
+                SELECT
+                    e.id_etudiant,
+                    e.id_classe,
+                    AVG(r.moyenne_matiere) AS moyenne
+                FROM etudiant e
+                LEFT JOIN resultat_matiere r
+                    ON r.id_etudiant = e.id_etudiant
+                WHERE e.est_archive = FALSE
+                GROUP BY e.id_etudiant, e.id_classe
+            )
             SELECT
                 c.libelle_classe,
-                COUNT(DISTINCT e.id_etudiant) AS nb_etudiants,
-                ROUND(AVG(r.moyenne_matiere)::numeric, 2)
-                    AS moyenne_classe
+                COUNT(mo.id_etudiant)                AS nb_etudiants,
+                ROUND(AVG(mo.moyenne)::numeric, 2)   AS moyenne_classe
             FROM classe c
-            LEFT JOIN etudiant e
-                ON e.id_classe = c.id_classe
-                AND e.est_archive = FALSE
-            LEFT JOIN resultat_matiere r
-                ON r.id_etudiant = e.id_etudiant
+            LEFT JOIN moyennes mo ON mo.id_classe = c.id_classe
             GROUP BY c.libelle_classe
             ORDER BY c.libelle_classe
         """)
@@ -95,7 +108,7 @@ def get_stats_classes():
 
         resultats = []
         for ligne in lignes:
-            row = dict(zip(colonnes, ligne))
+            row = dict(zip(colonnes, ligne, strict=True))
             row['moyenne_classe'] = float(row['moyenne_classe']) \
                 if row['moyenne_classe'] else 0
             resultats.append(row)
@@ -139,7 +152,7 @@ def get_top_moyennes():
 
         resultats = []
         for ligne in lignes:
-            row = dict(zip(colonnes, ligne))
+            row = dict(zip(colonnes, ligne, strict=True))
             row['moyenne_generale'] = float(row['moyenne_generale'])
             row['nom_complet'] = f"{row['nom']} {row['prenom']}"
             resultats.append(row)
@@ -274,7 +287,7 @@ def get_stats_matieres():
         colonnes = [desc[0] for desc in cursor.description]
         resultats = []
         for ligne in cursor.fetchall():
-            row = dict(zip(colonnes, ligne))
+            row = dict(zip(colonnes, ligne, strict=True))
             for cle in ('moyenne_devoirs', 'moyenne_examen', 'ecart'):
                 row[cle] = float(row[cle]) if row[cle] is not None else 0
             resultats.append(row)
@@ -341,7 +354,7 @@ def get_eleves_a_suivre(limite=8, seuil=10):
         colonnes = [desc[0] for desc in cursor.description]
         resultats = []
         for ligne in cursor.fetchall():
-            row = dict(zip(colonnes, ligne))
+            row = dict(zip(colonnes, ligne, strict=True))
             row['moyenne_generale'] = float(row['moyenne_generale'])
             row['note_faible']      = float(row['note_faible'])
             row['nom_complet']      = f"{row['nom']} {row['prenom']}"
@@ -396,7 +409,7 @@ def get_dispersion_classes():
         colonnes = [desc[0] for desc in cursor.description]
         resultats = []
         for ligne in cursor.fetchall():
-            row = dict(zip(colonnes, ligne))
+            row = dict(zip(colonnes, ligne, strict=True))
             for cle in ('moyenne_classe', 'ecart_type',
                         'moyenne_min', 'moyenne_max'):
                 row[cle] = float(row[cle]) if row[cle] is not None else 0
